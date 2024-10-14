@@ -9,8 +9,9 @@ import * as nls from '../../../../nls.js';
 import { WorkbenchCompressibleAsyncDataTree } from '../../../../platform/list/browser/listService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { SearchView } from './searchView.js';
-import { FileMatch, FolderMatch, Match, RenderableMatch, searchComparer, SearchResult } from './searchModel.js';
 import { ISearchConfigurationProperties, VIEW_ID } from '../../../services/search/common/search.js';
+import { isSearchMatch, RenderableMatch, ISearchResult, isFileInstanceMatch, isFolderMatch } from './searchTreeModel/searchTreeCommon.js';
+import { searchComparer } from './searchMatchComparer.js';
 
 export const category = nls.localize2('search', "Search");
 
@@ -27,7 +28,7 @@ export function getSearchView(viewsService: IViewsService): SearchView | undefin
 	return viewsService.getActiveViewWithId(VIEW_ID) as SearchView;
 }
 
-export function getElementsToOperateOn(viewer: WorkbenchCompressibleAsyncDataTree<SearchResult, RenderableMatch, void>, currElement: RenderableMatch | undefined, sortConfig: ISearchConfigurationProperties): RenderableMatch[] {
+export function getElementsToOperateOn(viewer: WorkbenchCompressibleAsyncDataTree<ISearchResult, RenderableMatch, void>, currElement: RenderableMatch | undefined, sortConfig: ISearchConfigurationProperties): RenderableMatch[] {
 	let elements: RenderableMatch[] = viewer.getSelection().filter((x): x is RenderableMatch => x !== null).sort((a, b) => searchComparer(a, b, sortConfig.sortOrder));
 
 	// if selection doesn't include multiple elements, just return current focus element.
@@ -52,10 +53,10 @@ export function shouldRefocus(elements: RenderableMatch[], focusElement: Rendera
 
 function hasDownstreamMatch(elements: RenderableMatch[], focusElement: RenderableMatch) {
 	for (const elem of elements) {
-		if ((elem instanceof FileMatch && focusElement instanceof Match && elem.matches().includes(focusElement)) ||
-			(elem instanceof FolderMatch && (
-				(focusElement instanceof FileMatch && elem.getDownstreamFileMatch(focusElement.resource)) ||
-				(focusElement instanceof Match && elem.getDownstreamFileMatch(focusElement.parent().resource))
+		if ((isFileInstanceMatch(elem) && isSearchMatch(focusElement) && elem.matches().includes(focusElement)) ||
+			(isFolderMatch(elem) && (
+				(isFileInstanceMatch(focusElement) && elem.getDownstreamFileMatch(focusElement.resource)) ||
+				(isSearchMatch(focusElement) && elem.getDownstreamFileMatch(focusElement.parent().resource))
 			))) {
 			return true;
 		}
